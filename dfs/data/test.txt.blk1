@@ -1,0 +1,98 @@
+able(1);
+    private Text word = new Text();
+
+    public void map(Object key, Text value, Context context
+                    ) throws IOException, InterruptedException {
+      StringTokenizer itr = new StringTokenizer(value.toString());
+      while (itr.hasMoreTokens()) {
+        word.set(itr.nextToken());
+        context.write(word, one);
+      }
+    }
+  }
+
+  public static class IntSumReducer
+       extends Reducer<Text,IntWritable,Text,IntWritable> {
+    private IntWritable result = new IntWritable();
+
+    public void reduce(Text key, Iterable<IntWritable> values,
+                       Context context
+                       ) throws IOException, InterruptedException {
+      int sum = 0;
+      for (IntWritable val : values) {
+        sum += val.get();
+      }
+      result.set(sum);
+      context.write(key, result);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    Job job = Job.getInstance(conf, "word count");
+    job.setJarByClass(WordCount.class);
+    job.setMapperClass(TokenizerMapper.class);
+    job.setCombinerClass(IntSumReducer.class);
+    job.setReducerClass(IntSumReducer.class);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(IntWritable.class);
+    FileInputFormat.addInputPath(job, new Path(args[0]));
+    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+    System.exit(job.waitForCompletion(true) ? 0 : 1);
+  }
+}
+Usage
+Assuming environment variables are set as follows:
+
+export JAVA_HOME=/usr/java/default
+export PATH=${JAVA_HOME}/bin:${PATH}
+export HADOOP_CLASSPATH=${JAVA_HOME}/lib/tools.jar
+Compile WordCount.java and create a jar:
+
+$ bin/hadoop com.sun.tools.javac.Main WordCount.java
+$ jar cf wc.jar WordCount*.class
+Assuming that:
+
+/user/joe/wordcount/input - input directory in HDFS
+/user/joe/wordcount/output - output directory in HDFS
+Sample text-files as input:
+
+$ bin/hadoop fs -ls /user/joe/wordcount/input/
+/user/joe/wordcount/input/file01
+/user/joe/wordcount/input/file02
+
+$ bin/hadoop fs -cat /user/joe/wordcount/input/file01
+Hello World Bye World
+
+$ bin/hadoop fs -cat /user/joe/wordcount/input/file02
+Hello Hadoop Goodbye Hadoop
+Run the application:
+
+$ bin/hadoop jar wc.jar WordCount /user/joe/wordcount/input /user/joe/wordcount/output
+Output:
+
+$ bin/hadoop fs -cat /user/joe/wordcount/output/part-r-00000
+Bye 1
+Goodbye 1
+Hadoop 2
+Hello 2
+World 2
+Applications can specify a comma separated list of paths which would be present in the current working directory of the task using the option -files. The -libjars option allows applications to add jars to the classpaths of the maps and reduces. The option -archives allows them to pass comma separated list of archives as arguments. These archives are unarchived and a link with name of the archive is created in the current working directory of tasks. More details about the command line options are available at Commands Guide.
+
+Running wordcount example with -libjars, -files and -archives:
+
+bin/hadoop jar hadoop-mapreduce-examples-<ver>.jar wordcount -files cachefile.txt -libjars mylib.jar -archives myarchive.zip input output
+Here, myarchive.zip will be placed and unzipped into a directory by the name “myarchive.zip”.
+
+Users can specify a different symbolic name for files and archives passed through -files and -archives option, using #.
+
+For example,
+
+bin/hadoop jar hadoop-mapreduce-examples-<ver>.jar wordcount -files dir1/dict.txt#dict1,dir2/dict.txt#dict2 -archives mytar.tgz#tgzdir input output
+Here, the files dir1/dict.txt and dir2/dict.txt can be accessed by tasks using the symbolic names dict1 and dict2 respectively. The archive mytar.tgz will be placed and unarchived into a directory by the name “tgzdir”.
+
+Applications can specify environment variables for mapper, reducer, and application master tasks by specifying them on the command line using the options -Dmapreduce.map.env, -Dmapreduce.reduce.env, and -Dyarn.app.mapreduce.am.env, respectively.
+
+For example the following sets environment variables FOO_VAR=bar and LIST_VAR=a,b,c for the mappers and reducers,
+
+bin/had
