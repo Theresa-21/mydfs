@@ -94,7 +94,71 @@ class DataNode:
         os.system(format_command)
         
         return "Format datanode successfully~"
+    
+    # 以下需要修改的部分
+    def matrixInfo(self, input_path):
+        local_path = os.path.join(DATA_NODE_DIR, input_path)
+        with open(local_path, 'r') as file:
+            lines = file.readlines()
+    
+        m, n, p = tuple(map(int, lines[0].strip().split(' ')))
 
+        matrix_len = len(lines) - 1
+        
+        return f"{m} {n} {p} {matrix_len}"
+
+    def process_line_segment(self, lines, m, p, res, lock):
+        for line in lines:
+            r, c, v = int(line[1]), int(line[2]), int(line[3])
+            # 对于A来说，每一个r，要出现p次，每一次是 (r, i) = (c, v)
+            # 对于B来说，每一个c，要出现m次，每一次是 (i, c) = (r, v)
+            if line[0] == 'A':
+                for i in range(1, p + 1):
+                    with lock:
+                        res[(r, i)] = res.get((r, i), []) + [(0, c, v)]
+            else:
+                for i in range(1, m + 1):
+                    with lock:
+                        res[(i, c)] = res.get((i, c), []) + [(1, r, v)]
+
+    def mapper(self, input_path, start, end):
+        local_path = os.path.join(DATA_NODE_DIR, input_path)
+
+        lines = []
+        with open(local_path) as f:
+            for current_line_number, line in enumerate(f):
+                # 获取m, n, p信息
+                if current_line_number == 0:
+                    m, n, p = tuple(map(int, line.strip().split(' ')))
+                if current_line_number > start:
+                    lines.append(line.strip().split(','))
+                if current_line_number == end:
+                    break
+
+        # 并行进行mapper操作
+        num_threads = os.cpu_count() - 1
+        num_threads = min(len(lines), num_threads)
+        
+        print(num_threads)
+        
+        lines_per_thread = len(lines) // num_threads
+        res = {}
+        lock = threading.Lock()
+
+        threads = []
+        for i in range(num_threads):
+            start = i * lines_per_thread
+            end = (i + 1) * lines_per_thread if i != num_threads - 1 else len(lines)
+            thread = threading.Thread(target=self.process_line_segment, args=(lines[start: end], m, p, res, lock))
+            threads.append(thread)
+            thread.start()
+
+        # 等待所有线程完成
+        for thread in threads:
+            thread.join()
+
+        # 用base64和pickle来将map的字典转化为字符串形式
+        return base64.b64encode(pickle.dumps(res)).decode('utf-8')
 
 # 创建DataNode对象并启动
 data_node = DataNode()
