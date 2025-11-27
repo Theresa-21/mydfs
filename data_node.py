@@ -1,5 +1,8 @@
 import os
 import socket
+import threading
+import base64
+import pickle
 
 from common import *
 
@@ -45,6 +48,14 @@ class DataNode:
                         response = self.rm(dfs_path)
                     elif cmd == "format":  # 格式化DFS
                         response = self.format()
+                    elif cmd == "info":
+                        input_path = request[1]
+                        response = self.matrixInfo(input_path)
+                    elif cmd == "map":
+                        input_path = request[1]
+                        start = int(request[2])
+                        end = int(request[3])
+                        response = self.mapper(input_path, start, end)
                     else:
                         response = "Undefined command: " + " ".join(request)
 
