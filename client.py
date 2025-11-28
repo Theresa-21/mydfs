@@ -67,6 +67,7 @@ class Client:
         print("Request: {}".format(request))
         # TODO: 从NameNode获取一张FAT表；打印FAT表；根据FAT表逐个从目标DataNode请求数据块，写入到本地文件中
         try:
+            self.name_node_sock.send(bytes(request, encoding='utf-8'))
             # 1. 接收并解析FAT表
             fat_data = str(self.name_node_sock.recv(BUF_SIZE), encoding='utf-8')
             print(f"FAT Table:\n{fat_data}")
